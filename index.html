@@ -49,10 +49,11 @@ header.top p{margin:2px 0 0; font-size:12px; color:var(--ink-soft);}
 nav.tabs{
   display:flex; gap:4px; padding:8px 16px; position:sticky; top:calc(env(safe-area-inset-top,0px) + 55px);
   background:var(--paper); z-index:5; border-bottom:0.5px solid var(--line);
+  overflow-x:auto; -webkit-overflow-scrolling:touch;
 }
 nav.tabs button{
-  flex:1; padding:8px 4px; border:none; background:transparent; color:var(--ink-soft);
-  font-size:12.5px; font-weight:600; border-radius:8px; cursor:pointer; transition:background .15s,color .15s;
+  flex:1; white-space:nowrap; padding:8px 4px; border:none; background:transparent; color:var(--ink-soft);
+  font-size:12px; font-weight:600; border-radius:8px; cursor:pointer; transition:background .15s,color .15s;
 }
 nav.tabs button.active{background:var(--teal-soft); color:var(--teal);}
 main{flex:1; padding:14px 14px 80px;}
@@ -138,7 +139,6 @@ main{flex:1; padding:14px 14px 80px;}
 .cal-head h3{margin:0; font-size:15px;}
 .cal-head .navbtn{background:none; border:0.5px solid var(--line); border-radius:8px; width:30px; height:30px; font-size:15px; color:var(--ink); cursor:pointer;}
 
-/* Tối ưu lưới lịch chuẩn nét mỏng & cân đối trên mobile */
 .cal-table{
   display:grid; 
   grid-template-columns: 24px repeat(7, minmax(0, 1fr)); 
@@ -185,6 +185,16 @@ main{flex:1; padding:14px 14px 80px;}
 .dayrec .actions .edit{color:var(--teal);}
 .dayrec .actions .del{color:var(--danger);}
 
+/* Style cho Tab Tổng quan */
+.stat-box{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;}
+.stat-card{background:var(--card); border:0.5px solid var(--line); border-radius:10px; padding:12px;}
+.stat-card .val{font-size:18px; font-weight:700; color:var(--teal); margin-top:4px;}
+.stat-card .lbl{font-size:11.5px; color:var(--ink-soft); font-weight:600;}
+
+.stat-table{width:100%; border-collapse:collapse; font-size:12.5px; margin-top:8px;}
+.stat-table th, .stat-table td{border:0.5px solid var(--line); padding:8px 10px; text-align:left;}
+.stat-table th{background:var(--paper); font-weight:600; color:var(--ink-soft); font-size:11.5px;}
+
 #loadingOverlay {
   position:fixed; inset:0; background:var(--paper); z-index:99; display:flex; 
   flex-direction:column; align-items:center; justify-content:center; font-weight:600; font-size:14px; color:var(--ink-soft);
@@ -209,6 +219,7 @@ main{flex:1; padding:14px 14px 80px;}
   </header>
   <nav class="tabs">
     <button data-tab="lich" class="active">Lịch & Học phí</button>
+    <button data-tab="tongquan">📊 Tổng quan</button>
     <button data-tab="monhoc">Môn học</button>
     <button data-tab="cauhinh">Cấu hình</button>
   </nav>
@@ -218,6 +229,7 @@ main{flex:1; padding:14px 14px 80px;}
       <div id="calWrap"></div>
       <div id="subjWrap"></div>
     </section>
+    <section id="tab-tongquan" class="tabpane"></section>
     <section id="tab-monhoc" class="tabpane"></section>
     <section id="tab-cauhinh" class="tabpane"></section>
   </main>
@@ -500,7 +512,6 @@ function renderCalendar(){
         const payToday = DB.payments.filter(p=>p.date===c.ds);
         const expectedToday = expectedMap[c.ds] || [];
         
-        // Ghi trực tiếp tên môn học ngắn gọn lên lịch
         const icons = attToday.map(a=>{
           const subj = subjById[a.subjectId];
           return subj ? `<span class="cal-icon-badge" style="background:${subj.color}" title="${esc(subj.name)}">${esc(subj.name)}</span>` : '';
@@ -677,6 +688,66 @@ function saveSubjectForm(id){
   saveToCloud(); closeSheet();
 }
 
+function renderTongquan(){
+  const el = document.getElementById('tab-tongquan');
+  
+  // Tổng hợp dữ liệu theo Tháng (YYYY-MM) và Năm (YYYY)
+  let monthStats = {}; // { '2026-06': { sessions: 0, paid: 0 } }
+  let yearStats = {};  // { '2026': { sessions: 0, paid: 0 } }
+
+  const subjMap = Object.fromEntries(DB.subjects.map(s => [s.id, s]));
+
+  // Tính số buổi học từ bảng attendance
+  DB.attendance.forEach(a => {
+    if(!a.date) return;
+    const mKey = a.date.slice(0, 7); // YYYY-MM
+    const yKey = a.date.slice(0, 4); // YYYY
+    
+    if(!monthStats[mKey]) monthStats[mKey] = { sessions: 0, paid: 0 };
+    if(!yearStats[yKey]) yearStats[yKey] = { sessions: 0, paid: 0 };
+    
+    monthStats[mKey].sessions += 1;
+    yearStats[yKey].sessions += 1;
+  });
+
+  // Tính tiền học đã đóng từ bảng payments
+  DB.payments.forEach(p => {
+    if(!p.date) return;
+    const mKey = p.date.slice(0, 7);
+    const yKey = p.date.slice(0, 4);
+
+    if(!monthStats[mKey]) monthStats[mKey] = { sessions: 0, paid: 0 };
+    if(!yearStats[yKey]) yearStats[yKey] = { sessions: 0, paid: 0 };
+
+    monthStats[mKey].paid += (Number(p.amount) || 0);
+    yearStats[yKey].paid += (Number(p.amount) || 0);
+  });
+
+  const sortedMonths = Object.keys(monthStats).sort().reverse();
+  const sortedYears = Object.keys(yearStats).sort().reverse();
+
+  let monthRows = sortedMonths.map(m => {
+    const [y, mm] = m.split('-');
+    return `<tr><td><b>Tháng ${mm}/${y}</b></td><td>${monthStats[m].sessions} buổi</td><td style="color:var(--teal); font-weight:600;">${money(monthStats[m].paid)}</td></tr>`;
+  }).join('');
+
+  let yearRows = sortedYears.map(y => {
+    return `<tr><td><b>Năm ${y}</b></td><td>${yearStats[y].sessions} buổi</td><td style="color:var(--teal); font-weight:600;">${money(yearStats[y].paid)}</td></tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="card">
+      <h3 style="margin-top:0; font-size:15px; margin-bottom:10px;">📅 Thống kê theo Tháng</h3>
+      ${sortedMonths.length ? `<table class="stat-table"><thead><tr><th>Tháng</th><th>Số buổi học</th><th>Tiền đã đóng</th></tr></thead><tbody>${monthRows}</tbody></table>` : '<p class="subj-meta">Chưa có dữ liệu học tập hoặc đóng tiền.</p>'}
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0; font-size:15px; margin-bottom:10px;">📊 Thống kê theo Năm</h3>
+      ${sortedYears.length ? `<table class="stat-table"><thead><tr><th>Năm</th><th>Số buổi học</th><th>Tiền đã đóng</th></tr></thead><tbody>${yearRows}</tbody></table>` : '<p class="subj-meta">Chưa có dữ liệu học tập hoặc đóng tiền.</p>'}
+    </div>
+  `;
+}
+
 function renderCauhinh(){
   const el = document.getElementById('tab-cauhinh');
   el.innerHTML = `
@@ -689,7 +760,7 @@ function renderCauhinh(){
 
 document.getElementById('fabAdd').addEventListener('click', ()=>openSubjectSheet(null));
 
-function renderAll(){ renderForecast(); renderCalendar(); renderLich(); renderMonhoc(); renderCauhinh(); }
+function renderAll(){ renderForecast(); renderCalendar(); renderLich(); renderTongquan(); renderMonhoc(); renderCauhinh(); }
 
 initRealtimeSync();
 </script>
