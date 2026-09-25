@@ -185,12 +185,6 @@ main{flex:1; padding:14px 14px 80px;}
 .dayrec .actions .edit{color:var(--teal);}
 .dayrec .actions .del{color:var(--danger);}
 
-/* Style cho Tab Tổng quan */
-.stat-box{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;}
-.stat-card{background:var(--card); border:0.5px solid var(--line); border-radius:10px; padding:12px;}
-.stat-card .val{font-size:18px; font-weight:700; color:var(--teal); margin-top:4px;}
-.stat-card .lbl{font-size:11.5px; color:var(--ink-soft); font-weight:600;}
-
 .stat-table{width:100%; border-collapse:collapse; font-size:12.5px; margin-top:8px;}
 .stat-table th, .stat-table td{border:0.5px solid var(--line); padding:8px 10px; text-align:left;}
 .stat-table th{background:var(--paper); font-weight:600; color:var(--ink-soft); font-size:11.5px;}
@@ -691,26 +685,32 @@ function saveSubjectForm(id){
 function renderTongquan(){
   const el = document.getElementById('tab-tongquan');
   
-  // Tổng hợp dữ liệu theo Tháng (YYYY-MM) và Năm (YYYY)
-  let monthStats = {}; // { '2026-06': { sessions: 0, paid: 0 } }
-  let yearStats = {};  // { '2026': { sessions: 0, paid: 0 } }
+  let monthStats = {}; 
+  let yearStats = {};  
+  let subjStats = {};  // { subjectId: { sessions: 0, paid: 0 } }
 
-  const subjMap = Object.fromEntries(DB.subjects.map(s => [s.id, s]));
+  DB.subjects.forEach(s => {
+    subjStats[s.id] = { sessions: 0, paid: 0, name: s.name, color: s.color };
+  });
 
-  // Tính số buổi học từ bảng attendance
+  // Tổng hợp buổi học
   DB.attendance.forEach(a => {
     if(!a.date) return;
-    const mKey = a.date.slice(0, 7); // YYYY-MM
-    const yKey = a.date.slice(0, 4); // YYYY
+    const mKey = a.date.slice(0, 7); 
+    const yKey = a.date.slice(0, 4); 
     
     if(!monthStats[mKey]) monthStats[mKey] = { sessions: 0, paid: 0 };
     if(!yearStats[yKey]) yearStats[yKey] = { sessions: 0, paid: 0 };
     
     monthStats[mKey].sessions += 1;
     yearStats[yKey].sessions += 1;
+
+    if(subjStats[a.subjectId]) {
+      subjStats[a.subjectId].sessions += 1;
+    }
   });
 
-  // Tính tiền học đã đóng từ bảng payments
+  // Tổng hợp tiền đóng
   DB.payments.forEach(p => {
     if(!p.date) return;
     const mKey = p.date.slice(0, 7);
@@ -721,6 +721,10 @@ function renderTongquan(){
 
     monthStats[mKey].paid += (Number(p.amount) || 0);
     yearStats[yKey].paid += (Number(p.amount) || 0);
+
+    if(subjStats[p.subjectId]) {
+      subjStats[p.subjectId].paid += (Number(p.amount) || 0);
+    }
   });
 
   const sortedMonths = Object.keys(monthStats).sort().reverse();
@@ -735,7 +739,17 @@ function renderTongquan(){
     return `<tr><td><b>Năm ${y}</b></td><td>${yearStats[y].sessions} buổi</td><td style="color:var(--teal); font-weight:600;">${money(yearStats[y].paid)}</td></tr>`;
   }).join('');
 
+  let subjRows = DB.subjects.map(s => {
+    const st = subjStats[s.id];
+    return `<tr><td><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${s.color}; margin-right:6px;"></span><b>${esc(s.name)}</b></td><td>${st.sessions} buổi</td><td style="color:var(--teal); font-weight:600;">${money(st.paid)}</td></tr>`;
+  }).join('');
+
   el.innerHTML = `
+    <div class="card">
+      <h3 style="margin-top:0; font-size:15px; margin-bottom:10px;">📚 Thống kê theo Từng Môn học</h3>
+      ${DB.subjects.length ? `<table class="stat-table"><thead><tr><th>Môn học</th><th>Tổng số buổi</th><th>Tổng tiền đã đóng</th></tr></thead><tbody>${subjRows}</tbody></table>` : '<p class="subj-meta">Chưa có môn học nào.</p>'}
+    </div>
+
     <div class="card">
       <h3 style="margin-top:0; font-size:15px; margin-bottom:10px;">📅 Thống kê theo Tháng</h3>
       ${sortedMonths.length ? `<table class="stat-table"><thead><tr><th>Tháng</th><th>Số buổi học</th><th>Tiền đã đóng</th></tr></thead><tbody>${monthRows}</tbody></table>` : '<p class="subj-meta">Chưa có dữ liệu học tập hoặc đóng tiền.</p>'}
