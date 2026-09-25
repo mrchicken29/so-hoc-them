@@ -189,6 +189,8 @@ main{flex:1; padding:14px 14px 80px;}
 .stat-table th, .stat-table td{border:0.5px solid var(--line); padding:8px 10px; text-align:left;}
 .stat-table th{background:var(--paper); font-weight:600; color:var(--ink-soft); font-size:11.5px;}
 
+.filter-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;}
+
 #loadingOverlay {
   position:fixed; inset:0; background:var(--paper); z-index:99; display:flex; 
   flex-direction:column; align-items:center; justify-content:center; font-weight:600; font-size:14px; color:var(--ink-soft);
@@ -682,82 +684,100 @@ function saveSubjectForm(id){
   saveToCloud(); closeSheet();
 }
 
+let filterSubj = 'all';
+let filterMonth = 'all';
+let filterYear = 'all';
+
+function updateFilter(type, val){
+  if(type === 'subj') filterSubj = val;
+  if(type === 'month') filterMonth = val;
+  if(type === 'year') filterYear = val;
+  renderTongquan();
+}
+
 function renderTongquan(){
   const el = document.getElementById('tab-tongquan');
   
-  let monthStats = {}; 
-  let yearStats = {};  
-  let subjStats = {};  // { subjectId: { sessions: 0, paid: 0 } }
+  // Lấy danh sách các năm và tháng có sẵn từ dữ liệu
+  let availableYears = new Set();
+  let availableMonths = new Set();
+  
+  DB.attendance.forEach(a => { if(a.date) { availableYears.add(a.date.slice(0,4)); availableMonths.add(a.date.slice(0,7)); } });
+  DB.payments.forEach(p => { if(p.date) { availableYears.add(p.date.slice(0,4)); availableMonths.add(p.date.slice(0,7)); } });
 
-  DB.subjects.forEach(s => {
-    subjStats[s.id] = { sessions: 0, paid: 0, name: s.name, color: s.color };
-  });
+  const sortedYears = Array.from(availableYears).sort().reverse();
+  const sortedMonths = Array.from(availableMonths).sort().reverse();
 
-  // Tổng hợp buổi học
-  DB.attendance.forEach(a => {
-    if(!a.date) return;
-    const mKey = a.date.slice(0, 7); 
-    const yKey = a.date.slice(0, 4); 
-    
-    if(!monthStats[mKey]) monthStats[mKey] = { sessions: 0, paid: 0 };
-    if(!yearStats[yKey]) yearStats[yKey] = { sessions: 0, paid: 0 };
-    
-    monthStats[mKey].sessions += 1;
-    yearStats[yKey].sessions += 1;
-
-    if(subjStats[a.subjectId]) {
-      subjStats[a.subjectId].sessions += 1;
-    }
-  });
-
-  // Tổng hợp tiền đóng
-  DB.payments.forEach(p => {
-    if(!p.date) return;
-    const mKey = p.date.slice(0, 7);
-    const yKey = p.date.slice(0, 4);
-
-    if(!monthStats[mKey]) monthStats[mKey] = { sessions: 0, paid: 0 };
-    if(!yearStats[yKey]) yearStats[yKey] = { sessions: 0, paid: 0 };
-
-    monthStats[mKey].paid += (Number(p.amount) || 0);
-    yearStats[yKey].paid += (Number(p.amount) || 0);
-
-    if(subjStats[p.subjectId]) {
-      subjStats[p.subjectId].paid += (Number(p.amount) || 0);
-    }
-  });
-
-  const sortedMonths = Object.keys(monthStats).sort().reverse();
-  const sortedYears = Object.keys(yearStats).sort().reverse();
-
-  let monthRows = sortedMonths.map(m => {
+  // Tạo các option cho dropdown
+  const subjOptions = `<option value="all">📚 Tất cả môn học</option>` + DB.subjects.map(s => `<option value="${s.id}" ${filterSubj===s.id?'selected':''}>${esc(s.name)}</option>`).join('');
+  const yearOptions = `<option value="all">📅 Tất cả năm</option>` + sortedYears.map(y => `<option value="${y}" ${filterYear===y?'selected':''}>Năm ${y}</option>`).join('');
+  const monthOptions = `<option value="all">🗓️ Tất cả tháng</option>` + sortedMonths.map(m => {
     const [y, mm] = m.split('-');
-    return `<tr><td><b>Tháng ${mm}/${y}</b></td><td>${monthStats[m].sessions} buổi</td><td style="color:var(--teal); font-weight:600;">${money(monthStats[m].paid)}</td></tr>`;
+    return `<option value="${m}" ${filterMonth===m?'selected':''}>Tháng ${mm}/${y}</option>`;
   }).join('');
 
-  let yearRows = sortedYears.map(y => {
-    return `<tr><td><b>Năm ${y}</b></td><td>${yearStats[y].sessions} buổi</td><td style="color:var(--teal); font-weight:600;">${money(yearStats[y].paid)}</td></tr>`;
-  }).join('');
+  // Lọc dữ liệu theo điều kiện dropdown
+  const filteredAttendance = DB.attendance.filter(a => {
+    if(!a.date) return false;
+    if(filterSubj !== 'all' && a.subjectId !== filterSubj) return false;
+    if(filterYear !== 'all' && !a.date.startsWith(filterYear)) return false;
+    if(filterMonth !== 'all' && !a.date.startsWith(filterMonth)) return false;
+    return true;
+  });
 
-  let subjRows = DB.subjects.map(s => {
-    const st = subjStats[s.id];
-    return `<tr><td><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${s.color}; margin-right:6px;"></span><b>${esc(s.name)}</b></td><td>${st.sessions} buổi</td><td style="color:var(--teal); font-weight:600;">${money(st.paid)}</td></tr>`;
-  }).join('');
+  const filteredPayments = DB.payments.filter(p => {
+    if(!p.date) return false;
+    if(filterSubj !== 'all' && p.subjectId !== filterSubj) return false;
+    if(filterYear !== 'all' && !p.date.startsWith(filterYear)) return false;
+    if(filterMonth !== 'all' && !p.date.startsWith(filterMonth)) return false;
+    return true;
+  });
+
+  // Tính tổng số liệu sau khi lọc
+  let totalSessions = filteredAttendance.length;
+  let totalPaid = filteredPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+
+  // Thống kê chi tiết theo môn (sau khi lọc thời gian)
+  let subjStats = {};
+  DB.subjects.forEach(s => {
+    if(filterSubj === 'all' || filterSubj === s.id) {
+      subjStats[s.id] = { sessions: 0, paid: 0, name: s.name, color: s.color };
+    }
+  });
+
+  filteredAttendance.forEach(a => {
+    if(subjStats[a.subjectId]) subjStats[a.subjectId].sessions += 1;
+  });
+  filteredPayments.forEach(p => {
+    if(subjStats[p.subjectId]) subjStats[p.subjectId].paid += (Number(p.amount) || 0);
+  });
+
+  let subjRows = Object.values(subjStats).map(st => `
+    <tr>
+      <td><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${st.color}; margin-right:6px;"></span><b>${esc(st.name)}</b></td>
+      <td>${st.sessions} buổi</td>
+      <td style="color:var(--teal); font-weight:600;">${money(st.paid)}</td>
+    </tr>
+  `).join('');
 
   el.innerHTML = `
     <div class="card">
-      <h3 style="margin-top:0; font-size:15px; margin-bottom:10px;">📚 Thống kê theo Từng Môn học</h3>
-      ${DB.subjects.length ? `<table class="stat-table"><thead><tr><th>Môn học</th><th>Tổng số buổi</th><th>Tổng tiền đã đóng</th></tr></thead><tbody>${subjRows}</tbody></table>` : '<p class="subj-meta">Chưa có môn học nào.</p>'}
+      <h3 style="margin-top:0; font-size:15px; margin-bottom:10px;">🔍 Lọc dữ liệu tổng quan</h3>
+      <div class="filter-grid">
+        <div class="field" style="margin-bottom:6px;"><label>Môn học</label><select onchange="updateFilter('subj', this.value)">${subjOptions}</select></div>
+        <div class="field" style="margin-bottom:6px;"><label>Năm</label><select onchange="updateFilter('year', this.value)">${yearOptions}</select></div>
+      </div>
+      <div class="field" style="margin-bottom:0;"><label>Tháng</label><select onchange="updateFilter('month', this.value)">${monthOptions}</select></div>
+    </div>
+
+    <div class="card" style="background:var(--teal-soft); border-color:var(--teal); color:var(--teal);">
+      <div style="font-size:13px; font-weight:600; margin-bottom:4px;">📌 Tổng kết theo điều kiện lọc:</div>
+      <div style="font-size:16px; font-weight:700;">Tổng số buổi: ${totalSessions} buổi — Tổng tiền: ${money(totalPaid)}</div>
     </div>
 
     <div class="card">
-      <h3 style="margin-top:0; font-size:15px; margin-bottom:10px;">📅 Thống kê theo Tháng</h3>
-      ${sortedMonths.length ? `<table class="stat-table"><thead><tr><th>Tháng</th><th>Số buổi học</th><th>Tiền đã đóng</th></tr></thead><tbody>${monthRows}</tbody></table>` : '<p class="subj-meta">Chưa có dữ liệu học tập hoặc đóng tiền.</p>'}
-    </div>
-
-    <div class="card">
-      <h3 style="margin-top:0; font-size:15px; margin-bottom:10px;">📊 Thống kê theo Năm</h3>
-      ${sortedYears.length ? `<table class="stat-table"><thead><tr><th>Năm</th><th>Số buổi học</th><th>Tiền đã đóng</th></tr></thead><tbody>${yearRows}</tbody></table>` : '<p class="subj-meta">Chưa có dữ liệu học tập hoặc đóng tiền.</p>'}
+      <h3 style="margin-top:0; font-size:15px; margin-bottom:10px;">📊 Thống kê chi tiết theo môn</h3>
+      ${Object.keys(subjStats).length ? `<table class="stat-table"><thead><tr><th>Môn học</th><th>Số buổi</th><th>Tiền đã đóng</th></tr></thead><tbody>${subjRows}</tbody></table>` : '<p class="subj-meta">Không có dữ liệu phù hợp.</p>'}
     </div>
   `;
 }
