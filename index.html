@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sổ Học Thêm</title>
+<style>
+:root{
+  --ink:#1E293B; --ink-soft:#5B677A; --paper:#F8FAFC; --card:#FFFFFF;
+  --line:#CBD5E1; --teal:#0F766E; --teal-soft:#CCFBF1; --amber:#B45309; --amber-soft:#FEF3C7;
+  --danger:#B91C1C;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+:root[data-theme="dark"]{
+  --ink:#E7ECF3; --ink-soft:#9AA7B8; --paper:#0F172A; --card:#1E293B;
+  --line:#334155; --teal:#2DD4BF; --teal-soft:#0B3B36; --amber:#FBBF24; --amber-soft:#3A2A0B;
+  --danger:#F87171;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]):not([data-theme="dark"]){
+    --ink:#E7ECF3; --ink-soft:#9AA7B8; --paper:#0F172A; --card:#1E293B;
+    --line:#334155; --teal:#2DD4BF; --teal-soft:#0B3B36; --amber:#FBBF24; --amber-soft:#3A2A0B;
+    --danger:#F87171;
+  }
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px); height:100%;}
+*{box-sizing:border-box;}
+body{
+  margin:0; height:100%; background:var(--paper); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:680px; margin:0 auto; min-height:100%; display:flex; flex-direction:column;}
+header.top{
+  padding:calc(env(safe-area-inset-top,0px) + 16px) 16px 12px; position:sticky; top:0;
+  background:var(--paper); z-index:5; border-bottom:1px solid var(--line);
+  display:flex; justify-content:space-between; align-items:center;
+}
+header.top h1{margin:0; font-size:20px; font-weight:700; letter-spacing:-0.01em;}
+header.top p{margin:2px 0 0; font-size:12.5px; color:var(--ink-soft);}
+.theme-select{
+  background:var(--card); border:1px solid var(--line); color:var(--ink);
+  padding:6px 10px; border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer;
+}
+
+nav.tabs{
+  display:flex; gap:4px; padding:10px 16px; position:sticky; top:calc(env(safe-area-inset-top,0px) + 61px);
+  background:var(--paper); z-index:5; border-bottom:1px solid var(--line);
+}
+nav.tabs button{
+  flex:1; padding:9px 6px; border:none; background:transparent; color:var(--ink-soft);
+  font-size:13px; font-weight:600; border-radius:8px; cursor:pointer; transition:background .15s,color .15s;
+}
+nav.tabs button.active{background:var(--teal-soft); color:var(--teal);}
+main{flex:1; padding:16px 16px 90px;}
+.tabpane{display:none;}
+.tabpane.active{display:block;}
+.card{
+  background:var(--card); border:1px solid var(--line); border-radius:12px;
+  padding:14px 16px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.02);
+}
+.subj-card{border-left:4px solid var(--subj-color,var(--teal));}
+.subj-head{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+.subj-head h3{margin:0 0 2px; font-size:16px;}
+.subj-meta{font-size:12.5px; color:var(--ink-soft); line-height:1.5;}
+.row{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:10px;}
+.pill{
+  display:inline-block; font-size:12px; font-weight:600; padding:3px 9px; border-radius:99px;
+}
+.pill.due{background:var(--amber-soft); color:var(--amber);}
+.pill.ok{background:var(--teal-soft); color:var(--teal);}
+.btn{
+  border:none; border-radius:9px; padding:8px 13px; font-size:13px; font-weight:600;
+  cursor:pointer; background:var(--teal); color:#fff;
+}
+.btn.secondary{background:transparent; color:var(--teal); border:1px solid var(--teal);}
+.btn.ghost{background:transparent; color:var(--ink-soft); border:1px solid var(--line);}
+.btn.danger{background:transparent; color:var(--danger); border:1px solid var(--danger);}
+.btn:active{opacity:.75;}
+.btnrow{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+.hist{margin-top:10px; border-top:1px dashed var(--line); padding-top:8px;}
+.hist summary{font-size:12.5px; color:var(--ink-soft); cursor:pointer; font-weight:600;}
+.hist-list{list-style:none; margin:8px 0 0; padding:0; max-height:160px; overflow-y:auto;}
+.hist-list li{display:flex; justify-content:space-between; font-size:13px; padding:5px 0; border-bottom:1px solid var(--line);}
+.hist-list li:last-child{border-bottom:none;}
+.hist-list button{background:none; border:none; color:var(--danger); font-size:12px; cursor:pointer; padding:0 4px;}
+.empty{text-align:center; padding:50px 16px; color:var(--ink-soft);}
+.empty h3{color:var(--ink); margin-bottom:6px;}
+.fab{
+  position:fixed; right:calc(50% - 340px + 18px); bottom:calc(env(safe-area-inset-bottom,0px) + 20px);
+  width:52px; height:52px; border-radius:50%; background:var(--teal); color:#fff; border:none;
+  font-size:26px; box-shadow:0 6px 18px rgba(0,0,0,.18); cursor:pointer; z-index:6;
+}
+@media (max-width:719px){ .fab{right:20px;} }
+.overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:20; display:none;
+  align-items:flex-end; justify-content:center;
+}
+.overlay.show{display:flex;}
+.sheet{
+  background:var(--card); width:100%; max-width:680px; border-radius:16px 16px 0 0;
+  padding:20px 20px calc(env(safe-area-inset-bottom,0px) + 20px); max-height:85vh; overflow-y:auto;
+}
+.sheet h2{margin:0 0 14px; font-size:17px;}
+.field{margin-bottom:14px;}
+.field label{display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:6px;}
+.field input, .field select{
+  width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:9px;
+  background:var(--paper); color:var(--ink); font-size:14.5px;
+}
+.radiogroup{display:flex; flex-direction:column; gap:8px;}
+.radiogroup label{
+  display:flex; align-items:center; gap:9px; font-size:13.5px; font-weight:500; color:var(--ink);
+  border:1px solid var(--line); border-radius:9px; padding:10px 12px; cursor:pointer;
+}
+.radiogroup input{width:auto;}
+.sheet .btnrow{margin-top:18px;}
+.sheet .btn{flex:1;}
+
+.days-checkbox-group{display:grid; grid-template-columns:repeat(4,1fr); gap:6px;}
+.days-checkbox-group label{
+  display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:500;
+  border:1px solid var(--line); border-radius:8px; padding:8px; cursor:pointer; background:var(--paper);
+}
+.days-checkbox-group input{width:auto;}
+
+/* Forecast Banner */
+.forecast-banner{
+  background:var(--teal-soft); color:var(--teal); border-radius:10px; padding:10px 14px;
+  margin-bottom:12px; font-size:13px; display:flex; flex-direction:column; gap:4px;
+  border-left:4px solid var(--teal);
+}
+.forecast-banner.has-due{background:var(--amber-soft); color:var(--amber); border-left-color:var(--amber);}
+
+/* Calendar Grid chia ô rõ ràng */
+.cal-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;}
+.cal-head h3{margin:0; font-size:16px;}
+.cal-head .navbtn{background:none; border:1px solid var(--line); border-radius:8px; width:32px; height:32px; font-size:16px; color:var(--ink); cursor:pointer;}
+
+.cal-table{display:grid; grid-template-columns:36px repeat(7,1fr); gap:3px; background:var(--line); border:1px solid var(--line); border-radius:10px; overflow:hidden;}
+.cal-header-cell{background:var(--card); font-size:11px; color:var(--ink-soft); text-align:center; font-weight:700; padding:6px 0;}
+.cal-week-label{background:var(--card); font-size:10.5px; color:var(--ink-soft); display:flex; align-items:center; justify-content:center; font-weight:600; border-top:1px solid var(--line);}
+
+.cal-day{
+  position:relative; aspect-ratio:1; background:var(--card); display:flex; flex-direction:column; 
+  align-items:center; justify-content:flex-start; padding-top:4px; font-size:12.5px; cursor:pointer; 
+  border:1px solid transparent; transition:border-color .15s;
+}
+.cal-day:hover{border-color:var(--teal);}
+.cal-day.other{opacity:0.3; background:var(--paper);}
+.cal-day.today{border-color:var(--teal); font-weight:700; background:var(--teal-soft);}
+.cal-day.has{background:var(--card);}
+
+.cal-icons{display:flex; flex-wrap:wrap; justify-content:center; gap:2px; margin-top:2px; max-width:92%;}
+.cal-icon-badge{font-size:9px; font-weight:700; color:#fff; padding:1px 3px; border-radius:4px; line-height:1; display:inline-block;}
+.cal-icon-expected{font-size:9px; font-weight:600; padding:1px 3px; border-radius:4px; line-height:1; display:inline-block; border:1px dashed currentColor; background:transparent;}
+
+.cal-pay{position:absolute; bottom:2px; right:3px; font-size:9px;}
+.legend{display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; font-size:11px; color:var(--ink-soft);}
+.legend span{display:inline-flex; align-items:center; gap:4px;}
+.legend .dot{width:8px; height:8px; border-radius:50%; display:inline-block;}
+.legend .dash-box{width:8px; height:8px; border:1px dashed var(--ink-soft); display:inline-block;}
+
+.dayrec{display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--line); font-size:13.5px;}
+.dayrec:last-child{border-bottom:none;}
+.dayrec .tag{display:inline-block; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700; color:#fff; margin-right:8px;}
+.dayrec .actions button{background:none; border:none; font-size:12px; cursor:pointer; padding:2px 6px;}
+.dayrec .actions .edit{color:var(--teal);}
+.dayrec .actions .del{color:var(--danger);}
+
+/* Hướng dẫn chia sẻ */
+.guide-box h4{margin-top:0; color:var(--teal); font-size:14.5px;}
+.guide-box ol{padding-left:18px; margin:8px 0; font-size:13px; line-height:1.6; color:var(--ink-soft);}
+</style>
+</head>
+<body data-theme="auto">
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Sổ Học Thêm</h1>
+      <p>Theo dõi lịch học & học phí thông minh</p>
+    </div>
+    <select class="theme-select" id="themeSelect" onchange="changeTheme(this.value)">
+      <option value="auto">🖥️ Theo máy</option>
+      <option value="light">☀️ Sáng</option>
+      <option value="dark">🌙 Tối</option>
+    </select>
+  </header>
+  <nav class="tabs">
+    <button data-tab="lich" class="active">Lịch & Học phí</button>
+    <button data-tab="monhoc">Môn học</button>
+    <button data-tab="cauhinh">Cấu hình & Chia sẻ</button>
+  </nav>
+  <main>
+    <section id="tab-lich" class="tabpane active">
+      <div id="forecastWrap"></div>
+      <div id="calWrap"></div>
+      <div id="subjWrap"></div>
+    </section>
+    <section id="tab-monhoc" class="tabpane"></section>
+    <section id="tab-cauhinh" class="tabpane"></section>
+  </main>
+</div>
+
+<button class="fab" id="fabAdd" title="Thêm môn học">+</button>
+<div class="overlay" id="overlay"><div class="sheet" id="sheetContent"></div></div>
+
+<script>
+const STORE_KEY = "hocthem_v2";
+function load(){
+  try{ 
+    const raw = localStorage.getItem(STORE_KEY); 
+    if(raw) return JSON.parse(raw); 
+  }catch(e){}
+  return {subjects:[], attendance:[], payments:[], theme:'auto'};
+}
+function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }catch(e){} }
+let DB = load();
+
+// Khởi tạo Theme (sử dụng documentElement để áp dụng đúng cho thẻ html)
+function initTheme(){
+  const t = DB.theme || 'auto';
+  document.documentElement.setAttribute('data-theme', t);
+  const sel = document.getElementById('themeSelect');
+  if(sel) sel.value = t;
+}
+function changeTheme(val){
+  DB.theme = val;
+  document.documentElement.setAttribute('data-theme', val);
+  save();
+}
+initTheme();
+
+const COLORS = ["#0F766E","#B45309","#7C3AED","#0891B2","#BE185D","#4D7C0F"];
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const fmtDate = d => new Date(d).toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'});
+const todayStr = () => new Date().toISOString().slice(0,10);
+const money = n => (n||0).toLocaleString('vi-VN') + 'đ';
+
+function getSubjShortName(name){
+  if(!name) return 'M';
+  const parts = name.trim().split(/\s+/);
+  if(parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+const overlay = document.getElementById('overlay');
+const sheetContent = document.getElementById('sheetContent');
+function openSheet(html){ sheetContent.innerHTML = html; overlay.classList.add('show'); }
+function closeSheet(){ overlay.classList.remove('show'); sheetContent.innerHTML=''; }
+overlay.addEventListener('click', e => { if(e.target === overlay) closeSheet(); });
+
+// Tabs navigation
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tabpane').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+// Helpers: học phí & lịch dự kiến
+function subjAttendance(id){ return DB.attendance.filter(a=>a.subjectId===id).sort((a,b)=>b.date.localeCompare(a.date)); }
+function subjPayments(id){ return DB.payments.filter(p=>p.subjectId===id).sort((a,b)=>b.date.localeCompare(a.date)); }
+function lastPayment(id){ return subjPayments(id)[0] || null; }
+function nextPaymentInfo(subj){
+  const perWeek = (subj.expectedDays && subj.expectedDays.length > 0) ? subj.expectedDays.length : (Number(subj.sessionsPerWeek)||1);
+  const perCycle = Number(subj.sessionsPerPayment)||1;
+  const lp = lastPayment(subj.id);
+  const baseDate = lp ? lp.date : (subj.createdAt || todayStr());
+  const weeks = Math.ceil(perCycle / perWeek);
+  const next = new Date(baseDate);
+  next.setDate(next.getDate() + weeks*7);
+  const attendedSince = DB.attendance.filter(a=>a.subjectId===subj.id && (!lp || a.date > lp.date)).length;
+  const amount = perCycle * (Number(subj.pricePerSession)||0);
+  const overdue = new Date(next) < new Date(todayStr()) || attendedSince >= perCycle;
+  return {nextDate: next.toISOString().slice(0,10), amount, attendedSince, perCycle, overdue, lastDate: lp ? lp.date : null};
+}
+const PAY_LABEL = {before:"Đóng trước, học sau", after:"Học xong đóng", along:"Đóng theo buổi"};
+
+function getExpectedDatesForMonth(subj, y, m){
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const dates = [];
+  const expectedDays = subj.expectedDays || [];
+  if(expectedDays.length === 0) return dates;
+  for(let d = 1; d <= daysInMonth; d++){
+    const dateObj = new Date(y, m, d);
+    if(expectedDays.includes(dateObj.getDay())){
+      dates.push(`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
+    }
+  }
+  return dates;
+}
+
+// Lấy số tuần trong năm (ISO Week Number)
+function getWeekNumber(d) {
+  d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+  var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  var weekNo = Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+  return weekNo;
+}
+
+// Forecast banner
+function renderForecast(){
+  const el = document.getElementById('forecastWrap');
+  if(DB.subjects.length === 0){ el.innerHTML = ''; return; }
+  let totalDueAmount = 0, dueSubjs = [];
+  DB.subjects.forEach(s=>{
+    const info = nextPaymentInfo(s);
+    if(info.overdue){ totalDueAmount += info.amount; dueSubjs.push(s.name); }
+  });
+  if(dueSubjs.length > 0){
+    el.innerHTML = `<div class="forecast-banner has-due"><div style="font-weight:700;">⚠️ Cần đóng học phí ngay:</div><div>Các môn: <b>${dueSubjs.join(', ')}</b>. Tổng cần đóng: <b>${money(totalDueAmount)}</b></div></div>`;
+  } else {
+    el.innerHTML = `<div class="forecast-banner"><div style="font-weight:700;">✅ Tình trạng học phí ổn định</div><div>Chưa có môn nào đến hạn đóng tiền.</div></div>`;
+  }
+}
+
+// Tab Lịch & Học phí
+function renderLich(){
+  const el = document.getElementById('subjWrap');
+  if(DB.subjects.length===0){
+    el.innerHTML = `<div class="empty"><h3>Chưa có môn học nào</h3><p>Nhấn vào tab "Môn học" để bắt đầu.</p></div>`;
+    return;
+  }
+  el.innerHTML = DB.subjects.map(subj=>{
+    const info = nextPaymentInfo(subj);
+    const att = subjAttendance(subj.id);
+    const pays = subjPayments(subj.id);
+    const daysMap = {1:'T2', 2:'T3', 3:'T4', 4:'T5', 5:'T6', 6:'T7', 0:'CN'};
+    const schedStr = (subj.expectedDays && subj.expectedDays.length > 0) ? subj.expectedDays.map(d=>daysMap[d]).join(', ') : `${subj.sessionsPerWeek} b/tuần`;
+    return `
+    <div class="card subj-card" style="--subj-color:${subj.color}">
+      <div class="subj-head">
+        <div>
+          <h3>${esc(subj.name)}</h3>
+          <div class="subj-meta">Lịch: ${schedStr} · ${money(subj.pricePerSession)}/b · ${PAY_LABEL[subj.paymentType]}</div>
+        </div>
+        <span class="pill ${info.overdue?'due':'ok'}">${info.overdue?'Đến hạn':'Đã đóng'}</span>
+      </div>
+      <div class="row">
+        <div class="subj-meta">Đóng gần nhất: <b style="color:var(--ink)">${info.lastDate?fmtDate(info.lastDate):'Chưa có'}</b></div>
+        <div class="subj-meta">Dự kiến tiếp: <b style="color:var(--ink)">${fmtDate(info.nextDate)}</b></div>
+      </div>
+      <div class="subj-meta" style="margin-top:6px">Đã học ${info.attendedSince}/${info.perCycle} buổi trong kỳ · Cần đóng: <b style="color:var(--ink)">${money(info.amount)}</b></div>
+      <div class="btnrow">
+        <button class="btn" onclick="markAttendance('${subj.id}')">+ Điểm danh hôm nay</button>
+        <button class="btn secondary" onclick="openPaymentSheet('${subj.id}')">+ Ghi nhận đóng tiền</button>
+      </div>
+      <details class="hist"><summary>Lịch sử buổi học (${att.length})</summary>
+        <ul class="hist-list">${att.length? att.map(a=>`<li><span>${fmtDate(a.date)}</span><span><button onclick="openAttendanceEditSheet('${a.id}')" style="background:none;border:none;color:var(--teal);font-size:12px;cursor:pointer;padding:0 6px 0 0">Sửa</button><button onclick="delAttendance('${a.id}')">Xóa</button></span></li>`).join('') : '<li style="color:var(--ink-soft)">Chưa có buổi học nào</li>'}</ul>
+      </details>
+      <details class="hist"><summary>Lịch sử đóng tiền (${pays.length})</summary>
+        <ul class="hist-list">${pays.length? pays.map(p=>`<li><span>${fmtDate(p.date)} —${money(p.amount)}</span><span><button onclick="openPaymentEditSheet('${p.id}')" style="background:none;border:none;color:var(--teal);font-size:12px;cursor:pointer;padding:0 6px 0 0">Sửa</button><button onclick="delPayment('${p.id}')">Xóa</button></span></li>`).join('') : '<li style="color:var(--ink-soft)">Chưa có lần đóng nào</li>'}</ul>
+      </details>
+    </div>`;
+  }).join('');
+}
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function markAttendance(subjectId, date){
+  DB.attendance.push({id:uid(), subjectId, date: date || todayStr()});
+  save(); renderAll();
+}
+function delAttendance(id){ DB.attendance = DB.attendance.filter(a=>a.id!==id); save(); renderAll(); }
+function delPayment(id){ DB.payments = DB.payments.filter(p=>p.id!==id); save(); renderAll(); }
+
+function openAttendanceEditSheet(id){
+  const a = DB.attendance.find(x=>x.id===id);
+  const subj = DB.subjects.find(s=>s.id===a.subjectId);
+  openSheet(`
+    <h2>Sửa buổi học — ${esc(subj?subj.name:'')}</h2>
+    <div class="field"><label>Ngày học</label><input type="date" id="editAttDate" value="${a.date}"></div>
+    <div class="btnrow"><button class="btn ghost" onclick="closeSheet()">Hủy</button><button class="btn" onclick="saveAttendanceEdit('${id}')">Lưu</button></div>
+  `);
+}
+function saveAttendanceEdit(id){
+  const a = DB.attendance.find(x=>x.id===id);
+  a.date = document.getElementById('editAttDate').value || a.date;
+  save(); closeSheet(); renderAll();
+}
+function openPaymentEditSheet(id){
+  const p = DB.payments.find(x=>x.id===id);
+  const subj = DB.subjects.find(s=>s.id===p.subjectId);
+  openSheet(`
+    <h2>Sửa đóng tiền — ${esc(subj?subj.name:'')}</h2>
+    <div class="field"><label>Ngày đóng</label><input type="date" id="editPayDate" value="${p.date}"></div>
+    <div class="field"><label>Số tiền (đ)</label><input type="number" id="editPayAmount" value="${p.amount}"></div>
+    <div class="btnrow"><button class="btn ghost" onclick="closeSheet()">Hủy</button><button class="btn" onclick="savePaymentEdit('${id}')">Lưu</button></div>
+  `);
+}
+function savePaymentEdit(id){
+  const p = DB.payments.find(x=>x.id===id);
+  p.date = document.getElementById('editPayDate').value || p.date;
+  p.amount = Number(document.getElementById('editPayAmount').value)||0;
+  save(); closeSheet(); renderAll();
+}
+
+// Calendar với Số tuần & lưới chia ô rõ ràng
+let calMonth = (()=>{ const d=new Date(); d.setDate(1); return d; })();
+const DOW_LABELS = ['T2','T3','T4','T5','T6','T7','CN'];
+function shiftMonth(delta){ calMonth.setMonth(calMonth.getMonth()+delta); renderCalendar(); }
+function toDateStr(y,m,d){ return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+
+function renderCalendar(){
+  const el = document.getElementById('calWrap');
+  const y = calMonth.getFullYear(), m = calMonth.getMonth();
+  
+  const firstDayOfMonth = new Date(y, m, 1);
+  let startDayOfWeek = firstDayOfMonth.getDay() - 1;
+  if(startDayOfWeek === -1) startDayOfWeek = 6;
+  
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const daysInPrevMonth = new Date(y, m, 0).getDate();
+  const today = todayStr();
+  
+  let expectedMap = {};
+  DB.subjects.forEach(subj=>{
+    getExpectedDatesForMonth(subj, y, m).forEach(ed => {
+      if(!expectedMap[ed]) expectedMap[ed] = [];
+      expectedMap[ed].push(subj);
+    });
+  });
+
+  let rawCells = [];
+  for(let i = startDayOfWeek - 1; i >= 0; i--){
+    rawCells.push({d: daysInPrevMonth - i, other: true, ds: null, dateObj: new Date(y, m-1, daysInPrevMonth - i)});
+  }
+  for(let d = 1; d <= daysInMonth; d++){
+    rawCells.push({d, other: false, ds: toDateStr(y, m, d), dateObj: new Date(y, m, d)});
+  }
+  let nextMonthDay = 1;
+  while(rawCells.length % 7 !== 0){
+    rawCells.push({d: nextMonthDay, other: true, ds: null, dateObj: new Date(y, m+1, nextMonthDay)});
+    nextMonthDay++;
+  }
+
+  let weeksRows = [];
+  for(let i = 0; i < rawCells.length; i += 7){
+    const weekSlice = rawCells.slice(i, i + 7);
+    const weekNum = getWeekNumber(weekSlice[0].dateObj);
+    weeksRows.push({weekNum, days: weekSlice});
+  }
+
+  const subjById = Object.fromEntries(DB.subjects.map(s=>[s.id,s]));
+  
+  let gridHtml = `<div class="cal-header-cell">Tuần</div>` + DOW_LABELS.map(d=>`<div class="cal-header-cell">${d}</div>`).join('');
+  
+  weeksRows.forEach(w=>{
+    gridHtml += `<div class="cal-week-label">W${w.weekNum}</div>`;
+    w.days.forEach(c=>{
+      if(c.other){
+        gridHtml += `<div class="cal-day other"><span>${c.d}</span></div>`;
+      } else {
+        const attToday = DB.attendance.filter(a=>a.date===c.ds);
+        const payToday = DB.payments.filter(p=>p.date===c.ds);
+        const expectedToday = expectedMap[c.ds] || [];
+        
+        const icons = attToday.map(a=>{
+          const subj = subjById[a.subjectId];
+          return subj ? `<span class="cal-icon-badge" style="background:${subj.color}">${getSubjShortName(subj.name)}</span>` : '';
+        }).join('');
+
+        const attendedSubjIds = new Set(attToday.map(a=>a.subjectId));
+        const expectedIcons = expectedToday.filter(subj => !attendedSubjIds.has(subj.id)).map(subj => {
+          return `<span class="cal-icon-expected" style="color:${subj.color}">${getSubjShortName(subj.name)}</span>`;
+        }).join('');
+
+        const hasAny = attToday.length || payToday.length || expectedToday.length;
+        gridHtml += `<div class="cal-day ${c.ds===today?'today':''} ${hasAny?'has':''}" onclick="openDaySheet('${c.ds}')">
+          <span>${c.d}</span>
+          <div class="cal-icons">${icons}${expectedIcons}</div>
+          ${payToday.length?'<span class="cal-pay">💰</span>':''}
+        </div>`;
+      }
+    });
+  });
+
+  const legend = DB.subjects.map(s=>`<span><span class="dot" style="background:${s.color}"></span>${esc(s.name)}</span>`).join('') + 
+                 `<span><span class="dash-box"></span> Lịch dự kiến</span>` + 
+                 (DB.subjects.length?'<span>💰 Đóng tiền</span>':'');
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="cal-head">
+        <button class="navbtn" onclick="shiftMonth(-1)">‹</button>
+        <h3>Tháng ${m+1}/${y}</h3>
+        <button class="navbtn" onclick="shiftMonth(1)">›</button>
+      </div>
+      <div class="cal-table">${gridHtml}</div>
+      ${DB.subjects.length?`<div class="legend">${legend}</div>`:''}
+    </div>
+  `;
+}
+
+function openDaySheet(ds){
+  if(!ds) return;
+  if(DB.subjects.length===0){ openSheet(`<h2>${fmtDate(ds)}</h2><p class="subj-meta">Thêm môn học trước ở tab "Môn học".</p><div class="btnrow"><button class="btn ghost" onclick="closeSheet()">Đóng</button></div>`); return; }
+  const subjById = Object.fromEntries(DB.subjects.map(s=>[s.id,s]));
+  const att = DB.attendance.filter(a=>a.date===ds);
+  const pays = DB.payments.filter(p=>p.date===ds);
+  const subjOptions = DB.subjects.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  openSheet(`
+    <h2>${fmtDate(ds)}</h2>
+    <div class="field"><label>Điểm danh thực tế trong ngày</label></div>
+    ${att.length? att.map(a=>{
+      const subj = subjById[a.subjectId];
+      return `<div class="dayrec"><span><span class="tag" style="background:${subj?subj.color:'#999'}">${getSubjShortName(subj?subj.name:'?')}</span>${esc(subj?subj.name:'?')}</span><span class="actions"><button class="edit" onclick="openAttendanceEditSheet('${a.id}')">Sửa</button><button class="del" onclick="delAttendance('${a.id}');openDaySheet('${ds}')">Xóa</button></span></div>`;
+    }).join('') : '<p class="subj-meta">Chưa có lịch sử điểm danh.</p>'}
+    <div class="field" style="margin-top:12px"><label>Thêm điểm danh nhanh</label><select id="addAttSubj">${subjOptions}</select></div>
+    <button class="btn secondary" style="width:100%" onclick="addAttendanceForDate('${ds}')">+ Điểm danh môn này</button>
+
+    <div class="field" style="margin-top:20px"><label>Đóng tiền trong ngày</label></div>
+    ${pays.length? pays.map(p=>{
+      const subj = subjById[p.subjectId];
+      return `<div class="dayrec"><span><span class="tag" style="background:${subj?subj.color:'#999'}">${getSubjShortName(subj?subj.name:'?')}</span>${esc(subj?subj.name:'?')} — ${money(p.amount)}</span><span class="actions"><button class="edit" onclick="openPaymentEditSheet('${p.id}')">Sửa</button><button class="del" onclick="delPayment('${p.id}');openDaySheet('${ds}')">Xóa</button></span></div>`;
+    }).join('') : '<p class="subj-meta">Chưa có lần đóng tiền nào.</p>'}
+    <div class="field" style="margin-top:12px"><label>Thêm đóng tiền</label><select id="addPaySubj">${subjOptions}</select><div style="height:8px"></div><input type="number" id="addPayAmount" placeholder="Số tiền (đ)"></div>
+    <button class="btn secondary" style="width:100%" onclick="addPaymentForDate('${ds}')">+ Thêm đóng tiền</button>
+    <div class="btnrow" style="margin-top:16px;"><button class="btn ghost" style="width:100%" onclick="closeSheet()">Đóng</button></div>
+  `);
+}
+function addAttendanceForDate(ds){
+  markAttendance(document.getElementById('addAttSubj').value, ds);
+  openDaySheet(ds);
+}
+function addPaymentForDate(ds){
+  const subjectId = document.getElementById('addPaySubj').value;
+  const subj = DB.subjects.find(s=>s.id===subjectId);
+  const amt = Number(document.getElementById('addPayAmount').value) || (subj? Number(subj.sessionsPerPayment)*Number(subj.pricePerSession) : 0);
+  DB.payments.push({id:uid(), subjectId, date:ds, amount:amt});
+  save(); renderAll(); openDaySheet(ds);
+}
+
+function openPaymentSheet(subjectId){
+  const subj = DB.subjects.find(s=>s.id===subjectId);
+  const info = nextPaymentInfo(subj);
+  openSheet(`
+    <h2>Ghi nhận đóng tiền — ${esc(subj.name)}</h2>
+    <div class="field"><label>Ngày đóng</label><input type="date" id="payDate" value="${todayStr()}"></div>
+    <div class="field"><label>Số tiền (đ)</label><input type="number" id="payAmount" value="${info.amount}"></div>
+    <div class="btnrow"><button class="btn ghost" onclick="closeSheet()">Hủy</button><button class="btn" onclick="savePayment('${subjectId}')">Lưu</button></div>
+  `);
+}
+function savePayment(subjectId){
+  const date = document.getElementById('payDate').value || todayStr();
+  const amount = Number(document.getElementById('payAmount').value)||0;
+  DB.payments.push({id:uid(), subjectId, date, amount});
+  save(); closeSheet(); renderAll();
+}
+
+// Tab Môn học
+function renderMonhoc(){
+  const el = document.getElementById('tab-monhoc');
+  let html = `<div style="margin-bottom:14px;"><button class="btn" onclick="openSubjectSheet(null)">+ Thêm môn học mới</button></div>`;
+  if(DB.subjects.length===0){
+    el.innerHTML = html + `<div class="empty"><h3>Chưa có môn học nào</h3><p>Nhấn nút bên trên để thêm môn học.</p></div>`;
+    return;
+  }
+  html += DB.subjects.map(subj=>{
+    const daysMap = {1:'Thứ 2', 2:'Thứ 3', 3:'Thứ 4', 4:'Thứ 5', 5:'Thứ 6', 6:'Thứ 7', 0:'Chủ nhật'};
+    const daysStr = (subj.expectedDays && subj.expectedDays.length > 0) ? subj.expectedDays.map(d=>daysMap[d]).join(', ') : 'Chưa chọn lịch';
+    return `
+    <div class="card subj-card" style="--subj-color:${subj.color}">
+      <div class="subj-head">
+        <div>
+          <h3>${esc(subj.name)}</h3>
+          <div class="subj-meta">Lịch dự kiến: <b>${daysStr}</b></div>
+          <div class="subj-meta">Học phí: ${money(subj.pricePerSession)}/b · Đóng ${subj.sessionsPerPayment} b/lần (${PAY_LABEL[subj.paymentType]})</div>
+        </div>
+      </div>
+      <div class="btnrow">
+        <button class="btn secondary" onclick="openSubjectSheet('${subj.id}')">Sửa thông tin & Lịch</button>
+        <button class="btn danger" onclick="deleteSubject('${subj.id}')">Xóa</button>
+      </div>
+    </div>`;
+  }).join('');
+  el.innerHTML = html;
+}
+
+function deleteSubject(id){
+  if(!confirm('Xóa môn học này? Toàn bộ lịch sử liên quan sẽ bị xóa.')) return;
+  DB.subjects = DB.subjects.filter(s=>s.id!==id);
+  DB.attendance = DB.attendance.filter(a=>a.subjectId!==id);
+  DB.payments = DB.payments.filter(p=>p.subjectId!==id);
+  save(); renderAll();
+}
+
+function openSubjectSheet(id){
+  const subj = id ? DB.subjects.find(s=>s.id===id) : null;
+  const expDays = subj ? (subj.expectedDays || []) : [1, 3];
+  const dayOptions = [{val:1,label:'Thứ 2'},{val:2,label:'Thứ 3'},{val:3,label:'Thứ 4'},{val:4,label:'Thứ 5'},{val:5,label:'Thứ 6'},{val:6,label:'Thứ 7'},{val:0,label:'Chủ nhật'}];
+  const daysCheckboxes = dayOptions.map(d => `<label><input type="checkbox" name="schedDay" value="${d.val}" ${expDays.includes(d.val)?'checked':''}> ${d.label}</label>`).join('');
+
+  openSheet(`
+    <h2>${subj?'Sửa môn học':'Thêm môn học mới'}</h2>
+    <div class="field"><label>Tên môn học</label><input id="sName" value="${subj?esc(subj.name):''}" placeholder="VD: Toán, Tiếng Anh..."></div>
+    <div class="field"><label>Ngày học dự kiến trong tuần</label><div class="days-checkbox-group">${daysCheckboxes}</div></div>
+    <div class="field"><label>Tiền học 1 buổi (đ)</label><input type="number" min="0" id="sPrice" value="${subj?subj.pricePerSession:100000}"></div>
+    <div class="field"><label>Số buổi học / lần đóng tiền</label><input type="number" min="1" id="sSessionsPay" value="${subj?subj.sessionsPerPayment:8}"></div>
+    <div class="field"><label>Hình thức đóng tiền</label>
+      <div class="radiogroup">
+        <label><input type="radio" name="sPayType" value="before" ${(!subj || subj.paymentType==='before')?'checked':''}> Đóng trước, học sau</label>
+        <label><input type="radio" name="sPayType" value="after" ${subj&&subj.paymentType==='after'?'checked':''}> Học xong đóng</label>
+        <label><input type="radio" name="sPayType" value="along" ${subj&&subj.paymentType==='along'?'checked':''}> Đóng theo buổi</label>
+      </div>
+    </div>
+    <div class="btnrow"><button class="btn ghost" onclick="closeSheet()">Hủy</button><button class="btn" onclick="saveSubjectForm('${id||''}')">Lưu</button></div>
+  `);
+  setTimeout(()=>document.getElementById('sName')?.focus(),100);
+}
+
+function saveSubjectForm(id){
+  const name = document.getElementById('sName').value.trim();
+  if(!name){ alert('Vui lòng nhập tên môn học'); return; }
+  const checkedDays = Array.from(document.querySelectorAll('input[name="schedDay"]:checked')).map(el => Number(el.value));
+  const pricePerSession = Number(document.getElementById('sPrice').value) || 0;
+  const sessionsPerPayment = Number(document.getElementById('sSessionsPay').value) || 1;
+  const paymentType = document.querySelector('input[name="sPayType"]:checked').value;
+  const sessionsPerWeek = checkedDays.length > 0 ? checkedDays.length : 2;
+
+  if(id){
+    const subj = DB.subjects.find(s=>s.id===id);
+    subj.name = name; subj.expectedDays = checkedDays; subj.sessionsPerWeek = sessionsPerWeek;
+    subj.pricePerSession = pricePerSession; subj.sessionsPerPayment = sessionsPerPayment; subj.paymentType = paymentType;
+  } else {
+    DB.subjects.push({
+      id: uid(), name, createdAt: todayStr(),
+      color: COLORS[DB.subjects.length % COLORS.length],
+      expectedDays: checkedDays, sessionsPerWeek, pricePerSession, sessionsPerPayment, paymentType
+    });
+  }
+  save(); closeSheet(); renderAll();
+}
+
+// Tab Cấu hình & Chia sẻ nền tảng
+function renderCauhinh(){
+  const el = document.getElementById('tab-cauhinh');
+  el.innerHTML = `
+    <div class="card">
+      <h3 style="margin-top:0; font-size:15px;">Sao lưu & Phục hồi dữ liệu (JSON)</h3>
+      <p class="subj-meta">Xuất dữ liệu ra file hoặc nạp file JSON để khôi phục.</p>
+      <div class="btnrow">
+        <button class="btn secondary" onclick="exportJSON()">Xuất file JSON</button>
+        <button class="btn ghost" onclick="document.getElementById('importFile').click()">Nhập file JSON</button>
+        <input type="file" id="importFile" style="display:none" accept=".json" onchange="importJSON(event)">
+      </div>
+    </div>
+    <div class="card guide-box">
+      <h4>🌐 Hướng dẫn đưa lên GitHub chia sẻ</h4>
+      <p class="subj-meta">Ứng dụng được đóng gói gọn gàng trong file <code>index.html</code> này. Các bước upload:</p>
+      <ol>
+        <li>Tạo Repository công khai trên <a href="https://github.com" target="_blank" style="color:var(--teal)">GitHub</a>.</li>
+        <li>Tải file <code>index.html</code> này lên kho lưu trữ bằng cách bấm <b>Add file</b> -> <b>Upload files</b>.</li>
+        <li>Vào mục <b>Settings</b> -> <b>Pages</b> -> Chọn nhánh <b>main</b> rồi bấm <b>Save</b> để nhận link online miễn phí!</li>
+      </ol>
+    </div>
+  `;
+}
+
+function exportJSON(){
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(DB, null, 2));
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", `so_hoc_them_backup_${todayStr()}.json`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+}
+
+function importJSON(event){
+  const fileReader = new FileReader();
+  if(event.target.files[0]){
+    fileReader.readAsText(event.target.files[0], "UTF-8");
+    fileReader.onload = (e) => {
+      try {
+        const parsed = JSON.parse(e.target.result);
+        if(parsed && Array.isArray(parsed.subjects)){
+          DB = parsed;
+          save();
+          initTheme();
+          renderAll();
+          alert('Khôi phục dữ liệu thành công!');
+        } else { alert('File JSON không hợp lệ!'); }
+      } catch (err) { alert('Lỗi đọc file!'); }
+    };
+  }
+}
+
+document.getElementById('fabAdd').addEventListener('click', ()=>openSubjectSheet(null));
+
+function renderAll(){ renderForecast(); renderCalendar(); renderLich(); renderMonhoc(); renderCauhinh(); }
+renderAll();
+</script>
+</body>
+</html>
