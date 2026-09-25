@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Sổ Học Thêm (Dùng chung)</title>
-<!-- Thêm thư viện Firebase SDK -->
+<title>Sổ Học Thêm (Realtime Database)</title>
+<!-- Thêm thư viện Firebase Realtime Database SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 <style>
 :root{
   --ink:#1E293B; --ink-soft:#5B677A; --paper:#F8FAFC; --card:#FFFFFF;
@@ -170,7 +170,6 @@ main{flex:1; padding:16px 16px 90px;}
 .dayrec .actions .edit{color:var(--teal);}
 .dayrec .actions .del{color:var(--danger);}
 
-/* Loading indicator */
 #loadingOverlay {
   position:fixed; inset:0; background:var(--paper); z-index:99; display:flex; 
   flex-direction:column; align-items:center; justify-content:center; font-weight:600; font-size:15px; color:var(--ink-soft);
@@ -179,13 +178,13 @@ main{flex:1; padding:16px 16px 90px;}
 </head>
 <body data-theme="auto">
 
-<div id="loadingOverlay">Đang đồng bộ dữ liệu đám mây...</div>
+<div id="loadingOverlay">Đang đồng bộ dữ liệu Realtime Database...</div>
 
 <div class="wrap">
   <header class="top">
     <div>
       <h1>Sổ Học Thêm</h1>
-      <p>Đồng bộ trực tuyến thời gian thực</p>
+      <p>Realtime Database</p>
     </div>
     <select class="theme-select" id="themeSelect" onchange="changeTheme(this.value)">
       <option value="auto">🖥️ Theo máy</option>
@@ -213,7 +212,7 @@ main{flex:1; padding:16px 16px 90px;}
 <div class="overlay" id="overlay"><div class="sheet" id="sheetContent"></div></div>
 
 <script>
-// --- CẤU HÌNH FIREBASE CỦA BẠN ---
+// --- CẤU HÌNH FIREBASE REALTIME DATABASE ---
 const firebaseConfig = {
   apiKey: "AIzaSyAT-VqFaUxdTffMLonEcIMJmmgg4PJGO_Q",
   authDomain: "so-hoc-them.firebaseapp.com",
@@ -224,17 +223,16 @@ const firebaseConfig = {
   appId: "1:601486788057:web:2921e33277c9b8f96885c8"
 };
 
-// Khởi tạo Firebase (Sử dụng Compat cho file HTML đơn)
 firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const rtdb = firebase.database();
 
 let DB = { subjects: [], attendance: [], payments: [], theme: 'auto' };
 
-// Lắng nghe dữ liệu thời gian thực từ Firestore (Realtime Sync)
+// Đồng bộ thời gian thực từ Realtime Database
 function initRealtimeSync() {
-  db.collection("appData").doc("mainStore").onSnapshot((doc) => {
-    if (doc.exists) {
-      const data = doc.data();
+  rtdb.ref('appData').on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
       DB.subjects = data.subjects || [];
       DB.attendance = data.attendance || [];
       DB.payments = data.payments || [];
@@ -246,13 +244,13 @@ function initRealtimeSync() {
     renderAll();
     document.getElementById('loadingOverlay').style.display = 'none';
   }, (error) => {
-    console.error("Lỗi đồng bộ dữ liệu:", error);
-    document.getElementById('loadingOverlay').innerHTML = "Lỗi kết nối Firebase! Vui lòng kiểm tra lại cấu hình.";
+    console.error("Lỗi đồng bộ Realtime Database:", error);
+    document.getElementById('loadingOverlay').innerHTML = "Lỗi kết nối Realtime Database! Kiểm tra lại quy tắc (rules).";
   });
 }
 
 function saveToCloud() {
-  db.collection("appData").doc("mainStore").set({
+  rtdb.ref('appData').set({
     subjects: DB.subjects,
     attendance: DB.attendance,
     payments: DB.payments,
@@ -262,7 +260,6 @@ function saveToCloud() {
   });
 }
 
-// Khởi tạo Theme
 function initTheme(){
   const t = DB.theme || 'auto';
   document.documentElement.setAttribute('data-theme', t);
@@ -677,8 +674,8 @@ function renderCauhinh(){
   const el = document.getElementById('tab-cauhinh');
   el.innerHTML = `
     <div class="card">
-      <h3 style="margin-top:0; font-size:15px;">Đồng bộ Đám mây (Firebase)</h3>
-      <p class="subj-meta">Đang kết nối tới dự án: <b>so-hoc-them</b>. Mọi người cùng truy cập link web sẽ dùng chung một cơ sở dữ liệu thời gian thực.</p>
+      <h3 style="margin-top:0; font-size:15px;">Đồng bộ Realtime Database</h3>
+      <p class="subj-meta">Đang kết nối qua URL: <b>so-hoc-them-default-rtdb.asia-southeast1.firebasedatabase.app</b>. Dữ liệu sẽ đồng bộ thời gian thực giữa các thiết bị dùng chung link.</p>
     </div>
   `;
 }
@@ -687,7 +684,7 @@ document.getElementById('fabAdd').addEventListener('click', ()=>openSubjectSheet
 
 function renderAll(){ renderForecast(); renderCalendar(); renderLich(); renderMonhoc(); renderCauhinh(); }
 
-// Bắt đầu chạy ứng dụng và lắng nghe Firebase
+// Chạy ứng dụng với Realtime Database
 initRealtimeSync();
 </script>
 </body>
