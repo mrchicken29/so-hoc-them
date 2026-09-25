@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Sổ Học Thêm</title>
+<title>Sổ Học Thêm (Dùng chung)</title>
+<!-- Thêm thư viện Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 <style>
 :root{
   --ink:#1E293B; --ink-soft:#5B677A; --paper:#F8FAFC; --card:#FFFFFF;
@@ -125,7 +128,6 @@ main{flex:1; padding:16px 16px 90px;}
 }
 .days-checkbox-group input{width:auto;}
 
-/* Forecast Banner */
 .forecast-banner{
   background:var(--teal-soft); color:var(--teal); border-radius:10px; padding:10px 14px;
   margin-bottom:12px; font-size:13px; display:flex; flex-direction:column; gap:4px;
@@ -133,7 +135,6 @@ main{flex:1; padding:16px 16px 90px;}
 }
 .forecast-banner.has-due{background:var(--amber-soft); color:var(--amber); border-left-color:var(--amber);}
 
-/* Calendar Grid chia ô rõ ràng */
 .cal-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;}
 .cal-head h3{margin:0; font-size:16px;}
 .cal-head .navbtn{background:none; border:1px solid var(--line); border-radius:8px; width:32px; height:32px; font-size:16px; color:var(--ink); cursor:pointer;}
@@ -169,17 +170,22 @@ main{flex:1; padding:16px 16px 90px;}
 .dayrec .actions .edit{color:var(--teal);}
 .dayrec .actions .del{color:var(--danger);}
 
-/* Hướng dẫn chia sẻ */
-.guide-box h4{margin-top:0; color:var(--teal); font-size:14.5px;}
-.guide-box ol{padding-left:18px; margin:8px 0; font-size:13px; line-height:1.6; color:var(--ink-soft);}
+/* Loading indicator */
+#loadingOverlay {
+  position:fixed; inset:0; background:var(--paper); z-index:99; display:flex; 
+  flex-direction:column; align-items:center; justify-content:center; font-weight:600; font-size:15px; color:var(--ink-soft);
+}
 </style>
 </head>
 <body data-theme="auto">
+
+<div id="loadingOverlay">Đang đồng bộ dữ liệu đám mây...</div>
+
 <div class="wrap">
   <header class="top">
     <div>
       <h1>Sổ Học Thêm</h1>
-      <p>Theo dõi lịch học & học phí thông minh</p>
+      <p>Đồng bộ trực tuyến thời gian thực</p>
     </div>
     <select class="theme-select" id="themeSelect" onchange="changeTheme(this.value)">
       <option value="auto">🖥️ Theo máy</option>
@@ -190,7 +196,7 @@ main{flex:1; padding:16px 16px 90px;}
   <nav class="tabs">
     <button data-tab="lich" class="active">Lịch & Học phí</button>
     <button data-tab="monhoc">Môn học</button>
-    <button data-tab="cauhinh">Cấu hình & Chia sẻ</button>
+    <button data-tab="cauhinh">Cấu hình</button>
   </nav>
   <main>
     <section id="tab-lich" class="tabpane active">
@@ -207,18 +213,56 @@ main{flex:1; padding:16px 16px 90px;}
 <div class="overlay" id="overlay"><div class="sheet" id="sheetContent"></div></div>
 
 <script>
-const STORE_KEY = "hocthem_v2";
-function load(){
-  try{ 
-    const raw = localStorage.getItem(STORE_KEY); 
-    if(raw) return JSON.parse(raw); 
-  }catch(e){}
-  return {subjects:[], attendance:[], payments:[], theme:'auto'};
-}
-function save(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }catch(e){} }
-let DB = load();
+// --- CẤU HÌNH FIREBASE CỦA BẠN ---
+const firebaseConfig = {
+  apiKey: "AIzaSyAT-VqFaUxdTffMLonEcIMJmmgg4PJGO_Q",
+  authDomain: "so-hoc-them.firebaseapp.com",
+  databaseURL: "https://so-hoc-them-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "so-hoc-them",
+  storageBucket: "so-hoc-them.firebasestorage.app",
+  messagingSenderId: "601486788057",
+  appId: "1:601486788057:web:2921e33277c9b8f96885c8"
+};
 
-// Khởi tạo Theme (sử dụng documentElement để áp dụng đúng cho thẻ html)
+// Khởi tạo Firebase (Sử dụng Compat cho file HTML đơn)
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+let DB = { subjects: [], attendance: [], payments: [], theme: 'auto' };
+
+// Lắng nghe dữ liệu thời gian thực từ Firestore (Realtime Sync)
+function initRealtimeSync() {
+  db.collection("appData").doc("mainStore").onSnapshot((doc) => {
+    if (doc.exists) {
+      const data = doc.data();
+      DB.subjects = data.subjects || [];
+      DB.attendance = data.attendance || [];
+      DB.payments = data.payments || [];
+      if(data.theme) DB.theme = data.theme;
+    } else {
+      saveToCloud();
+    }
+    initTheme();
+    renderAll();
+    document.getElementById('loadingOverlay').style.display = 'none';
+  }, (error) => {
+    console.error("Lỗi đồng bộ dữ liệu:", error);
+    document.getElementById('loadingOverlay').innerHTML = "Lỗi kết nối Firebase! Vui lòng kiểm tra lại cấu hình.";
+  });
+}
+
+function saveToCloud() {
+  db.collection("appData").doc("mainStore").set({
+    subjects: DB.subjects,
+    attendance: DB.attendance,
+    payments: DB.payments,
+    theme: DB.theme
+  }).catch((error) => {
+    console.error("Lỗi lưu dữ liệu: ", error);
+  });
+}
+
+// Khởi tạo Theme
 function initTheme(){
   const t = DB.theme || 'auto';
   document.documentElement.setAttribute('data-theme', t);
@@ -228,7 +272,7 @@ function initTheme(){
 function changeTheme(val){
   DB.theme = val;
   document.documentElement.setAttribute('data-theme', val);
-  save();
+  saveToCloud();
 }
 initTheme();
 
@@ -251,7 +295,6 @@ function openSheet(html){ sheetContent.innerHTML = html; overlay.classList.add('
 function closeSheet(){ overlay.classList.remove('show'); sheetContent.innerHTML=''; }
 overlay.addEventListener('click', e => { if(e.target === overlay) closeSheet(); });
 
-// Tabs navigation
 document.querySelectorAll('nav.tabs button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
@@ -261,7 +304,6 @@ document.querySelectorAll('nav.tabs button').forEach(btn=>{
   });
 });
 
-// Helpers: học phí & lịch dự kiến
 function subjAttendance(id){ return DB.attendance.filter(a=>a.subjectId===id).sort((a,b)=>b.date.localeCompare(a.date)); }
 function subjPayments(id){ return DB.payments.filter(p=>p.subjectId===id).sort((a,b)=>b.date.localeCompare(a.date)); }
 function lastPayment(id){ return subjPayments(id)[0] || null; }
@@ -294,7 +336,6 @@ function getExpectedDatesForMonth(subj, y, m){
   return dates;
 }
 
-// Lấy số tuần trong năm (ISO Week Number)
 function getWeekNumber(d) {
   d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
@@ -303,7 +344,6 @@ function getWeekNumber(d) {
   return weekNo;
 }
 
-// Forecast banner
 function renderForecast(){
   const el = document.getElementById('forecastWrap');
   if(DB.subjects.length === 0){ el.innerHTML = ''; return; }
@@ -319,7 +359,6 @@ function renderForecast(){
   }
 }
 
-// Tab Lịch & Học phí
 function renderLich(){
   const el = document.getElementById('subjWrap');
   if(DB.subjects.length===0){
@@ -363,10 +402,10 @@ function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;
 
 function markAttendance(subjectId, date){
   DB.attendance.push({id:uid(), subjectId, date: date || todayStr()});
-  save(); renderAll();
+  saveToCloud();
 }
-function delAttendance(id){ DB.attendance = DB.attendance.filter(a=>a.id!==id); save(); renderAll(); }
-function delPayment(id){ DB.payments = DB.payments.filter(p=>p.id!==id); save(); renderAll(); }
+function delAttendance(id){ DB.attendance = DB.attendance.filter(a=>a.id!==id); saveToCloud(); }
+function delPayment(id){ DB.payments = DB.payments.filter(p=>p.id!==id); saveToCloud(); }
 
 function openAttendanceEditSheet(id){
   const a = DB.attendance.find(x=>x.id===id);
@@ -380,7 +419,7 @@ function openAttendanceEditSheet(id){
 function saveAttendanceEdit(id){
   const a = DB.attendance.find(x=>x.id===id);
   a.date = document.getElementById('editAttDate').value || a.date;
-  save(); closeSheet(); renderAll();
+  saveToCloud(); closeSheet();
 }
 function openPaymentEditSheet(id){
   const p = DB.payments.find(x=>x.id===id);
@@ -396,10 +435,9 @@ function savePaymentEdit(id){
   const p = DB.payments.find(x=>x.id===id);
   p.date = document.getElementById('editPayDate').value || p.date;
   p.amount = Number(document.getElementById('editPayAmount').value)||0;
-  save(); closeSheet(); renderAll();
+  saveToCloud(); closeSheet();
 }
 
-// Calendar với Số tuần & lưới chia ô rõ ràng
 let calMonth = (()=>{ const d=new Date(); d.setDate(1); return d; })();
 const DOW_LABELS = ['T2','T3','T4','T5','T6','T7','CN'];
 function shiftMonth(delta){ calMonth.setMonth(calMonth.getMonth()+delta); renderCalendar(); }
@@ -532,7 +570,7 @@ function addPaymentForDate(ds){
   const subj = DB.subjects.find(s=>s.id===subjectId);
   const amt = Number(document.getElementById('addPayAmount').value) || (subj? Number(subj.sessionsPerPayment)*Number(subj.pricePerSession) : 0);
   DB.payments.push({id:uid(), subjectId, date:ds, amount:amt});
-  save(); renderAll(); openDaySheet(ds);
+  saveToCloud(); openDaySheet(ds);
 }
 
 function openPaymentSheet(subjectId){
@@ -549,10 +587,9 @@ function savePayment(subjectId){
   const date = document.getElementById('payDate').value || todayStr();
   const amount = Number(document.getElementById('payAmount').value)||0;
   DB.payments.push({id:uid(), subjectId, date, amount});
-  save(); closeSheet(); renderAll();
+  saveToCloud(); closeSheet();
 }
 
-// Tab Môn học
 function renderMonhoc(){
   const el = document.getElementById('tab-monhoc');
   let html = `<div style="margin-bottom:14px;"><button class="btn" onclick="openSubjectSheet(null)">+ Thêm môn học mới</button></div>`;
@@ -586,7 +623,7 @@ function deleteSubject(id){
   DB.subjects = DB.subjects.filter(s=>s.id!==id);
   DB.attendance = DB.attendance.filter(a=>a.subjectId!==id);
   DB.payments = DB.payments.filter(p=>p.subjectId!==id);
-  save(); renderAll();
+  saveToCloud();
 }
 
 function openSubjectSheet(id){
@@ -633,67 +670,25 @@ function saveSubjectForm(id){
       expectedDays: checkedDays, sessionsPerWeek, pricePerSession, sessionsPerPayment, paymentType
     });
   }
-  save(); closeSheet(); renderAll();
+  saveToCloud(); closeSheet();
 }
 
-// Tab Cấu hình & Chia sẻ nền tảng
 function renderCauhinh(){
   const el = document.getElementById('tab-cauhinh');
   el.innerHTML = `
     <div class="card">
-      <h3 style="margin-top:0; font-size:15px;">Sao lưu & Phục hồi dữ liệu (JSON)</h3>
-      <p class="subj-meta">Xuất dữ liệu ra file hoặc nạp file JSON để khôi phục.</p>
-      <div class="btnrow">
-        <button class="btn secondary" onclick="exportJSON()">Xuất file JSON</button>
-        <button class="btn ghost" onclick="document.getElementById('importFile').click()">Nhập file JSON</button>
-        <input type="file" id="importFile" style="display:none" accept=".json" onchange="importJSON(event)">
-      </div>
-    </div>
-    <div class="card guide-box">
-      <h4>🌐 Hướng dẫn đưa lên GitHub chia sẻ</h4>
-      <p class="subj-meta">Ứng dụng được đóng gói gọn gàng trong file <code>index.html</code> này. Các bước upload:</p>
-      <ol>
-        <li>Tạo Repository công khai trên <a href="https://github.com" target="_blank" style="color:var(--teal)">GitHub</a>.</li>
-        <li>Tải file <code>index.html</code> này lên kho lưu trữ bằng cách bấm <b>Add file</b> -> <b>Upload files</b>.</li>
-        <li>Vào mục <b>Settings</b> -> <b>Pages</b> -> Chọn nhánh <b>main</b> rồi bấm <b>Save</b> để nhận link online miễn phí!</li>
-      </ol>
+      <h3 style="margin-top:0; font-size:15px;">Đồng bộ Đám mây (Firebase)</h3>
+      <p class="subj-meta">Đang kết nối tới dự án: <b>so-hoc-them</b>. Mọi người cùng truy cập link web sẽ dùng chung một cơ sở dữ liệu thời gian thực.</p>
     </div>
   `;
-}
-
-function exportJSON(){
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(DB, null, 2));
-  const downloadAnchor = document.createElement('a');
-  downloadAnchor.setAttribute("href", dataStr);
-  downloadAnchor.setAttribute("download", `so_hoc_them_backup_${todayStr()}.json`);
-  document.body.appendChild(downloadAnchor);
-  downloadAnchor.click();
-  downloadAnchor.remove();
-}
-
-function importJSON(event){
-  const fileReader = new FileReader();
-  if(event.target.files[0]){
-    fileReader.readAsText(event.target.files[0], "UTF-8");
-    fileReader.onload = (e) => {
-      try {
-        const parsed = JSON.parse(e.target.result);
-        if(parsed && Array.isArray(parsed.subjects)){
-          DB = parsed;
-          save();
-          initTheme();
-          renderAll();
-          alert('Khôi phục dữ liệu thành công!');
-        } else { alert('File JSON không hợp lệ!'); }
-      } catch (err) { alert('Lỗi đọc file!'); }
-    };
-  }
 }
 
 document.getElementById('fabAdd').addEventListener('click', ()=>openSubjectSheet(null));
 
 function renderAll(){ renderForecast(); renderCalendar(); renderLich(); renderMonhoc(); renderCauhinh(); }
-renderAll();
+
+// Bắt đầu chạy ứng dụng và lắng nghe Firebase
+initRealtimeSync();
 </script>
 </body>
 </html>
